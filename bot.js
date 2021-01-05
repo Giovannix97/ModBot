@@ -1,20 +1,21 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
-const { ActivityHandler, MessageFactory } = require('botbuilder');
-const { sentimentAnalysis } = require('./moderation');
-
-
+const { ActivityHandler, MessageFactory, ActivityTypes } = require('botbuilder');
+const { ContentModerator } = require('./services/ContentModerator');
 
 class ModBot extends ActivityHandler {
     constructor() {
         super();
+
+        this.contentModerator = new ContentModerator();
+
         // See https://aka.ms/about-bot-activity-message to learn more about the message and other activity types.
         this.onMessage(async (context, next) => {
-            const receivedText = context.activity.text ;
-            const document = await sentimentAnalysis([receivedText]);
-           
-            const replyText = `Mi hai scritto: ${receivedText}.\n Al ${document[0].confidenceScores.positive.toFixed(2)} è positivo\n, al ${document[0].confidenceScores.neutral.toFixed(2)} è neutro,\n al ${document[0].confidenceScores.negative.toFixed(2)} è negativo\n`;
+            const receivedText = context.activity.text;
+
+            const response = await this.contentModerator.checkText(receivedText)
+            const replyText = `You talk to me in ${response.data.Language}`;
 
             await context.sendActivity(MessageFactory.text(replyText, replyText));
             // By calling next() you ensure that the next BotHandler is run.
