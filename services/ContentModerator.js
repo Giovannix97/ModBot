@@ -38,6 +38,27 @@ class ContentModerator {
         return axios.request(options);
     }
 
+    checkImage(url, cacheImage = false) {
+        const options = {
+            baseURL: this._endpoint,
+            url: 'contentmoderator/moderate/v1.0/ProcessImage/Evaluate',
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Ocp-Apim-Subscription-Key': this._key
+            },
+            params: {
+                CacheImage: cacheImage
+            },
+            data: {
+                DataRepresentation: "URL",
+                Value: url
+            }
+        };
+
+        return axios.request(options);
+    }
+
 }
 
 module.exports.ContentModerator = ContentModerator;

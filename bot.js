@@ -13,11 +13,43 @@ class ModBot extends ActivityHandler {
         // See https://aka.ms/about-bot-activity-message to learn more about the message and other activity types.
         this.onMessage(async (context, next) => {
             const receivedText = context.activity.text;
+            const attachments = context.activity.attachments;
 
-            const response = await this.contentModerator.checkText(receivedText)
-            const replyText = `You talk to me in ${response.data.Language}`;
+            if (attachments) {
+                for (let i = 0; i < attachments.length; i++) {
+                    const attachment = attachments[i];
 
-            await context.sendActivity(MessageFactory.text(replyText, replyText));
+                    if (!attachment.contentType.includes("image/"))
+                        continue;
+
+                    const response = (await this.contentModerator.checkImage(attachment.contentUrl)).data;
+                    if (response.IsImageAdultClassified || response.IsImageRacyClassified) {
+                        await context.deleteActivity(context.activity.id);
+                        await context.sendActivity(MessageFactory.text("Il messaggio è stato eliminato. Motivo: Non puoi inviare questa immagine in quanto viola il regolamento"));
+                    }
+                }
+            }
+
+            if (receivedText) {
+                const response = (await this.contentModerator.checkText(receivedText)).data
+                let replyText = "";
+
+                if(response.PII)
+                    if (response.PII.Address || response.PII.Phone || response.PII.Email)
+                        replyText = `Per favore, non condividere in chat informazioni personali.\n\n`;
+
+                if (response.Terms)
+                    replyText += `Hai ricevuto un avvertimento per aver scritto parolacce, offese o altro. Al prossimo verrai bannato.\n\n`
+
+                if (response.Classification)
+                    if (response.Classification.ReviewRecommended)
+                        replyText += `Hai ricevuto un avvertimento. Ti ricordiamo che è fondamentale che tu utilizzi un linguaggio appropriato in chat. Al prossimo avvertimento, verrai bannato.`;
+
+
+                if(replyText != "")
+                    await context.sendActivity(MessageFactory.text(replyText));
+            }
+
             // By calling next() you ensure that the next BotHandler is run.
             await next();
         });
