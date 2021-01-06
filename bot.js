@@ -1,7 +1,7 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
-const { ActivityHandler, MessageFactory, ActivityTypes } = require('botbuilder');
+const { ActivityHandler, MessageFactory, ActivityFactory } = require('botbuilder');
 const { ContentModerator } = require('./services/ContentModerator');
 
 class ModBot extends ActivityHandler {
@@ -46,8 +46,19 @@ class ModBot extends ActivityHandler {
                         replyText += `Hai ricevuto un avvertimento. Ti ricordiamo che è fondamentale che tu utilizzi un linguaggio appropriato in chat. Al prossimo avvertimento, verrai bannato.`;
 
 
-                if(replyText != "")
+                if(replyText != "") {
+
                     await context.sendActivity(MessageFactory.text(replyText));
+
+                    try {
+                        await context.deleteActivity(context.activity.id);
+                    } catch(e) {
+                        // If the channel does not support deleteActivity, a custom event will be triggered
+                        const deleteEvent = ActivityFactory.fromObject({activity_id: context.activity.id});
+                        deleteEvent.type = 'custom.delete'
+                        await context.sendActivity(deleteEvent);
+                    }
+                }
             }
 
             // By calling next() you ensure that the next BotHandler is run.
