@@ -3,17 +3,24 @@
 
 const { ActivityHandler, MessageFactory, ActivityTypes } = require('botbuilder');
 const { ContentModerator } = require('./services/ContentModerator');
+const { UserController } = require('./services/userController');
 
 class ModBot extends ActivityHandler {
     constructor() {
         super();
 
+        // Field for the moderation service
         this.contentModerator = new ContentModerator();
+        // Field for the persistence
+        this.userController = new UserController();
 
         // See https://aka.ms/about-bot-activity-message to learn more about the message and other activity types.
-        this.onMessage(async (context, next) => {
+        this.onMessage(async (context, next) => {        
             const receivedText = context.activity.text;
             const attachments = context.activity.attachments;
+
+            // Initialize the controller for CosmosDB
+            await this.userController.init();
 
             if (attachments) {
                 for (let i = 0; i < attachments.length; i++) {
@@ -22,10 +29,13 @@ class ModBot extends ActivityHandler {
                     if (!attachment.contentType.includes("image/"))
                         continue;
 
+                    console.log(attachment.contentUrl);
+
                     const response = (await this.contentModerator.checkImage(attachment.contentUrl)).data;
                     if (response.IsImageAdultClassified || response.IsImageRacyClassified) {
-                        await context.deleteActivity(context.activity.id);
-                        await context.sendActivity(MessageFactory.text("Il messaggio è stato eliminato. Motivo: Non puoi inviare questa immagine in quanto viola il regolamento"));
+                        // Doesn't work due to Azure-Telegram integration bug
+                        // await context.deleteActivity(context.activity.id);
+                        await context.sendActivity(MessageFactory.text("Non è il caso di inviare questo tipo di immagini..."));
                     }
                 }
             }
@@ -46,8 +56,12 @@ class ModBot extends ActivityHandler {
                         replyText += `Hai ricevuto un avvertimento. Ti ricordiamo che è fondamentale che tu utilizzi un linguaggio appropriato in chat. Al prossimo avvertimento, verrai bannato.`;
 
 
-                if(replyText != "")
+                if(replyText != "") {
+                    // await context.deleteActivity(context.activity.id);
+                    // Doesn't work due to Azure-Telegram integration bug
                     await context.sendActivity(MessageFactory.text(replyText));
+                }
+                    
             }
 
             // By calling next() you ensure that the next BotHandler is run.

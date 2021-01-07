@@ -17,6 +17,7 @@
     },
     "dependencies": {
         "@azure/ai-text-analytics": "^5.0.0",
+        "@azure/cosmos": "^3.9.3",
         "botbuilder": "~4.10.3",
         "dotenv": "^8.2.0",
         "restify": "~8.5.1"
