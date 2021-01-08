@@ -5,12 +5,12 @@ global.WebSocket = require('ws');
 
 const dotenv = require('dotenv');
 const path = require('path');
-const ENV_FILE = path.join(__dirname, '../.env');
-dotenv.config({ path: ENV_FILE });
 const Discord = require('discord.js');
 const { Activity, DirectLine } = require('botframework-directlinejs');
 const mime = require('mime-types');
-const axios = require('axios');
+
+const ENV_FILE = path.join(__dirname, '../.env');
+dotenv.config({ path: ENV_FILE });
 
 const directLine = new DirectLine({
     secret: process.env.DiscordDirectLineSecret
@@ -18,6 +18,7 @@ const directLine = new DirectLine({
 
 const client = new Discord.Client();
 
+// Session storage object
 const session = {};
 
 client.on('ready', () => {
@@ -37,18 +38,19 @@ client.on('message', msg => {
  */
 const postActivity = async event => {
     let activity;
-    let activityId;
 
     if (event.type === 'conversationUpdate')
         activity = event;
     else {
         activity = {
             from: { id: event.author.id, name: event.author.username },
-            type: 'message',
-            text: event.content || "Sample Discord Text"
+            type: 'message'
         }
+
+        if (event.content)
+            activity.text = event.content;
+
         await discordAttachmentHandler(event, activity);
-        console.log('out');
     }
 
     directLine
@@ -56,43 +58,67 @@ const postActivity = async event => {
         .subscribe(
             id => {
                 if (id === "retry") {
-                    console.error("Cannot send activity", id, activity)
+                    console.error("[ERROR]: Cannot send activity", id, activity.from)
                     return;
                 }
 
-                if (session[id]) {
-                    const { activity, toDelete } = session[id];
-                    event.channel.send(activity.text);
-
-                    if (toDelete) {
-                        event.delete({
-                            timeout: 100,
-                            reason: "Inappropriate language"
-                        });
-                    }
-
-                    delete session[id];
-                }
+                /* 
+                    There are no guarantee about who is called first about the this callback or the one after receiving the activity.
+                    So, a session check mecchanism is required. 
+                */
+                if (session[id])
+                    onActivityReceived(id, event);
                 else
-                    console.error("Cannot find message in session. Check if the bot has sent the message");
+                    session[id] = { event };
+
             },
-            error => console.error("Error posting activity:", error)
+            error => console.error("[ERROR]: Error posting activity:", error)
         );
 }
+/**
+ * Discord logic when an activity from bot is received
+ * @param {string} activityId Bot's activity identification
+ * @param {Discord.Message} event Discord message origanally sent by the user
+ */
+const onActivityReceived = (activityId, event) => {
+    const { activity, toDelete } = session[activityId];
+    event.channel.send(`<@${event.author.id}> ${activity.text}`);
 
+    if (toDelete) {
+        event.delete({
+            timeout: 100,
+            reason: "Inappropriate language"
+        });
+    }
+
+    delete session[activityId];
+}
+
+// Handle all activity messages sent by the bot
 directLine.activity$
     .filter(activity => activity.type === 'message' && activity.from.id === process.env.AzureBotName)
     .subscribe(
         activity => {
-            session[activity.replyToId] = { activity }
+            /* 
+                There are no guarantee about who is called first about the this callback or the one after posting activity.
+                So, a session check mecchanism is required. 
+            */
+            if (session[activity.replyToId]) {
+                session[activity.replyToId].activity = activity;
+                onActivityReceived(activity.replyToId, session[activity.replyToId].event);
+            }
+            else {
+                session[activity.replyToId] = { activity }
+            }
         }
     );
 
+// Unhandled activity logic
 directLine.activity$
     .filter(activity => activity.type !== 'message' && activity.type !== 'custom.delete' && activity.from.id === process.env.AzureBotName)
     .subscribe(
         activity => {
-            console.log("\n\n UNKNOW ACTIVITY \n\n", activity)
+            console.warn("[WARN]: Unhandled activity", activity)
         }
     );
 
@@ -118,8 +144,10 @@ const discordAttachmentHandler = async (message, activity) => {
 
     const keys = discordAttachments.keyArray();
 
-    if (!keys)
+    if (!keys || keys.length === 0)
         return;
+    else
+        activity.type = 'event';
 
     for (let i = 0; i < keys.length; i++) {
         const attachment = discordAttachments.get(keys[i]);
@@ -129,21 +157,12 @@ const discordAttachmentHandler = async (message, activity) => {
         if (!contentType.includes("image/"))
             continue;
 
-        const imageData = await downloadImage(attachment.proxyURL)
-        const imageBuffer = Buffer.from(imageData);
-        const imageSize = imageBuffer.byteLength;
-        const base64Image = imageBuffer.toString('base64');
-
         activity.attachments.push({
             name: attachment.name,
             contentType,
-            thumbnailUrl: `data:${contentType};base64,${base64Image}`,
+            contentUrl: attachment.proxyURL,
         });
-
-        activity.channelData.attachmentSizes.push(imageSize);
     }
-
-    console.log('finished');
 }
 
 /**
@@ -169,9 +188,4 @@ const getContentType = filename => {
     return mime.lookup(filename) ? mime.lookup(filename) : 'application/octet-stream';
 }
 
-const downloadImage = async imageUrl => {
-    const response = await axios.get(imageUrl, { responseType: 'arraybuffer' });
-    return response.data;
-}
-
-client.login(process.env.DiscordBotToken).catch(e => console.error(e))
+client.login(process.env.DiscordBotToken).catch(e => console.error("[ERROR]:", e))
