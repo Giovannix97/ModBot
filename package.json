@@ -19,8 +19,13 @@
         "@azure/ai-text-analytics": "^5.0.0",
         "@azure/cosmos": "^3.9.3",
         "botbuilder": "~4.10.3",
+        "botframework-directlinejs": "^0.13.1",
+        "discord.js": "^12.5.1",
         "dotenv": "^8.2.0",
-        "restify": "~8.5.1"
+        "mime-types": "^2.1.28",
+        "restify": "~8.5.1",
+        "ws": "^7.4.2",
+        "xhr2": "^0.2.0"
     },
     "devDependencies": {
         "eslint": "^7.0.0",
