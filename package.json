@@ -21,6 +21,7 @@
         "botframework-directlinejs": "^0.13.1",
         "discord.js": "^12.5.1",
         "dotenv": "^8.2.0",
+        "mime-types": "^2.1.28",
         "restify": "~8.5.1",
         "ws": "^7.4.2",
         "xhr2": "^0.2.0"

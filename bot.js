@@ -24,8 +24,15 @@ class ModBot extends ActivityHandler {
 
                     const response = (await this.contentModerator.checkImage(attachment.contentUrl)).data;
                     if (response.IsImageAdultClassified || response.IsImageRacyClassified) {
-                        await context.deleteActivity(context.activity.id);
                         await context.sendActivity(MessageFactory.text("Il messaggio è stato eliminato. Motivo: Non puoi inviare questa immagine in quanto viola il regolamento"));
+                        try {
+                            await context.deleteActivity(context.activity.id);
+                        } catch(e) {
+                            // If the channel does not support deleteActivity, a custom event will be triggered
+                            const deleteEvent = ActivityFactory.fromObject({activity_id: context.activity.id});
+                            deleteEvent.type = 'custom.delete'
+                            await context.sendActivity(deleteEvent);
+                        }
                     }
                 }
             }
