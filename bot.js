@@ -3,22 +3,29 @@
 
 const { Attachment, ActivityHandler, MessageFactory, ActivityFactory, TurnContext } = require('botbuilder');
 const { ContentModerator } = require('./services/ContentModerator');
+const { UserController } = require('./services/userController');
 
 class ModBot extends ActivityHandler {
     constructor() {
         super();
 
+        // Field for the moderation service
         this.contentModerator = new ContentModerator();
+        // Field for the persistence
+        this.userController = new UserController();
 
         // See https://aka.ms/about-bot-activity-message to learn more about the message and other activity types.
-        this.onMessage(async (context, next) => {
+        this.onMessage(async (context, next) => {        
             const receivedText = context.activity.text;
             const attachments = context.activity.attachments;
 
-            await this._onAttachmentsReceived(context, attachments);
+             this._onAttachmentsReceived(context, attachments);
 
             await this._onTextReceived(context, receivedText);
-
+          
+            // Initialize the controller for CosmosDB
+            await this.userController.init();
+          
             // By calling next() you ensure that the next BotHandler is run.
             await next();
         });
