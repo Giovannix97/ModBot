@@ -19,7 +19,7 @@ class ModBot extends ActivityHandler {
             const receivedText = context.activity.text;
             const attachments = context.activity.attachments;
 
-             this._onAttachmentsReceived(context, attachments);
+            await this._onAttachmentsReceived(context, attachments);
 
             await this._onTextReceived(context, receivedText);
           
