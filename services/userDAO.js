@@ -34,23 +34,23 @@ class UserDAO {
 
 
   async init() {
-    console.log('Setting up the database...');
+    console.info('[INFO]: Setting up the database...');
     const dbResponse = await this.client.databases.createIfNotExists({
       id: this.databaseId
     })
     this.database = dbResponse.database
-    console.log('Setting up the database...done!');
-    console.log('Setting up the container...');
+    console.info('[INFO]: Setting up the database...done!');
+    console.info('[INFO]: Setting up the container...');
     const coResponse = await this.database.containers.createIfNotExists({
       id: this.collectionId
     })
     this.container = coResponse.container
-    console.log('Setting up the container...done!');
+    console.info('[INFO]: Setting up the container...done!');
   }
 
 
   async find(querySpec) {
-    debug('Querying for items from the database')
+    console.info('[INFO]: Querying for items from the database')
     if (!this.container) {
       throw new Error('Collection is not initialized.')
     }
@@ -60,17 +60,17 @@ class UserDAO {
 
 
   async addItem(item) {
-    console.log('Adding an item to the database...');
+    console.info('[INFO]: Adding an item to the database...');
     item.date = Date.now();
     item.completed = false;
     const { resource: doc } = await this.container.items.create(item);
-    console.log('Adding an item to the database... done!');
+    console.info('[INFO]: Adding an item to the database... done!');
     return doc;
   }
 
 
   async updateItem(itemId) {
-    console.log('Updating an item in the database...');
+    console.info('[INFO]: Updating an item in the database...');
     const doc = await this.getItem(itemId);
     // Property to modify
     doc.completed = true;
@@ -79,15 +79,15 @@ class UserDAO {
       .item(itemId, partitionKey)
       .replace(doc)
 
-    console.log('Updating an item in the database... done!');
+    console.info('[INFO]: Updating an item in the database... done!');
     return replaced;
   }
 
 
   async getItem(itemId) {
-    debug('Getting an item from the database');
+    console.info('[INFO]: Getting an item from the database');
     const { resource } = await this.container.item(itemId, partitionKey).read();
-    debug('Getting an item from the database... done!');
+    console.log('[INFO]: Getting an item from the database... done!');
     return resource;
   }
 }

@@ -21,9 +21,9 @@ class UserController {
      * Inizialize the controller.
      */
     async init() {
-        console.log("Initializing the controller...");
+        console.info("[INFO]: Initializing the controller...");
         await this.userDAO.init();
-        console.log("Initializing the controller... Done!");   
+        console.info("[INFO]: Initializing the controller... Done!");   
     }
 
 
@@ -32,12 +32,12 @@ class UserController {
      */
     async add_user() {
         // const newItem = {
-            //     id: "1",
-            //     partizione: "ciao",
-            //     channel: "telegram",
-            //     number_of_warnings: 1,
-            //     isBanned: false
-            //   };
+        //         id: "1",
+        //         partizione: "ciao",
+        //         channel: "telegram",
+        //         number_of_warnings: 1,
+        //         isBanned: false
+        //       };
             
         // await this.userDAO.addItem(newItem)
     }

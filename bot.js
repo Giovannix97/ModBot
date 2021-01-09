@@ -4,27 +4,27 @@
 const { Attachment, ActivityHandler, MessageFactory, ActivityFactory, TurnContext } = require('botbuilder');
 const { ContentModerator } = require('./services/ContentModerator');
 const { UserController } = require('./services/userController');
+const { locales } = require('./locales');
 
 class ModBot extends ActivityHandler {
-    constructor() {
+     constructor() {
         super();
-
         // Field for the moderation service
         this.contentModerator = new ContentModerator();
         // Field for the persistence
         this.userController = new UserController();
+        // Initialize the controller for CosmosDB
+        this.userController.init();
+        
 
         // See https://aka.ms/about-bot-activity-message to learn more about the message and other activity types.
         this.onMessage(async (context, next) => {        
             const receivedText = context.activity.text;
             const attachments = context.activity.attachments;
 
-            await this._onAttachmentsReceived(context, attachments);
+            const language = await this._onTextReceived(context, receivedText);
 
-            await this._onTextReceived(context, receivedText);
-          
-            // Initialize the controller for CosmosDB
-            await this.userController.init();
+            await this._onAttachmentsReceived(context, attachments, language);
           
             // By calling next() you ensure that the next BotHandler is run.
             await next();
@@ -61,6 +61,7 @@ class ModBot extends ActivityHandler {
      * Perform logic on text to detect bad words and personal infos 
      * @param {TurnContext} context 
      * @param {string} receivedText 
+     * @returns {string} Language spoken by the user in the bot
      */
     async _onTextReceived(context, receivedText) {
         if (!receivedText || receivedText.trim() === "")
@@ -71,14 +72,17 @@ class ModBot extends ActivityHandler {
 
         if (response.PII)
             if (response.PII.Address || response.PII.Phone || response.PII.Email)
-                replyText = `Per favore, non condividere in chat informazioni personali.\n\n`;
-
-        if (response.Terms)
-            replyText += `Hai ricevuto un avvertimento per aver scritto parolacce, offese o altro. Al prossimo verrai bannato.\n\n`
-
-        if (response.Classification)
+                replyText = locales[response.Language].reply_personal_info;
+                
+        // Azure Content Moderator service finds insults and forbidden language
+        if (response.Classification) {
             if (response.Classification.ReviewRecommended)
-                replyText += `Hai ricevuto un avvertimento. Ti ricordiamo che è fondamentale che tu utilizzi un linguaggio appropriato in chat. Al prossimo avvertimento, verrai bannato.`;
+                replyText += locales[response.Language].reply_classification;
+        } else {
+            if (response.Terms) {
+                replyText += locales[response.Language].reply_dirty_words;
+            }
+        }
 
         if (replyText != "") {
             await context.sendActivity(MessageFactory.text(replyText));
@@ -92,14 +96,17 @@ class ModBot extends ActivityHandler {
                 await context.sendActivity(deleteEvent);
             }
         }
+
+        return response.Language;
     }
 
     /**
      * Perform logic on attachments (only images) to detect adult content 
      * @param {TurnContext} context 
      * @param {Attachment[]} attachments 
+     * @param {string} language Language spoken by the user in the bot
      */
-    async _onAttachmentsReceived(context, attachments) {
+    async _onAttachmentsReceived(context, attachments, language = "eng") {
         if (!attachments)
             return;
 
@@ -111,7 +118,7 @@ class ModBot extends ActivityHandler {
 
             const response = (await this.contentModerator.checkImage(attachment.contentUrl)).data;
             if (response.IsImageAdultClassified || response.IsImageRacyClassified) {
-                await context.sendActivity(MessageFactory.text("Il messaggio è stato eliminato. Motivo: Non puoi inviare questa immagine in quanto viola il regolamento"));
+                await context.sendActivity(MessageFactory.text(locales[language].reply_bad_image));
                 
                 try {
                     await context.deleteActivity(context.activity.id);
