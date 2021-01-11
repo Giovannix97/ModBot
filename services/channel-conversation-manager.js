@@ -1,15 +1,15 @@
 "use strict";
 
 const CosmosClient = require('@azure/cosmos').CosmosClient;
-const { ChannelConversationDAO } = require('./db/ChannelConversationDAO');
-const { EntityBuilder } = require('./db/EntityBuilder');
+const { ChannelConversationDAO } = require('./db/channel-conversation-dao');
+const { EntityBuilder } = require('./db/entity-builder');
 
 const QUEUE_LENGHT = 7;
 
 /**
  * Provide methods to store information about channel conversation
  */
-class ChannelConversationController {
+class ChannelConversationManager {
     constructor(dbEndpoint, dbKey) {
         const _dbEndpoint = dbEndpoint || process.env.CosmosDbEndpoint;
         const _dbKey = dbKey || process.env.CosmosDbKey;
@@ -30,12 +30,12 @@ class ChannelConversationController {
     }
 
     /**
-     * Inizialize the controller. Should be called before any method
+     * Inizialize the manager. Should be called before any method
      */
     async init() {
-        console.info("[INFO]: Initializing the controller...");
+        console.info("[INFO]: Initializing channel conversartion manager...");
         await this._channelConversationDAO.init();
-        console.info("[INFO]: Initializing the controller... Done!");
+        console.info("[INFO]: Initializing channel conversartion manager... Done!");
     }
 
     /**
@@ -137,4 +137,4 @@ class ChannelConversationController {
 }
 
 
-module.exports.ChannelConversationController = ChannelConversationController;
+module.exports.ChannelConversationManager = ChannelConversationManager;

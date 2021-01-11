@@ -1,4 +1,3 @@
-const { EntityBuilder } = require('./EntityBuilder');
 const path = require('path');
 const dotenv = require('dotenv');
 const CosmosClient = require('@azure/cosmos').CosmosClient;

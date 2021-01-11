@@ -1,8 +1,8 @@
 "use strict";
 
 const CosmosClient = require("@azure/cosmos").CosmosClient;
-const { userDAO } = require('./userDAO')
-const { EntityBuilder } = require('./db/EntityBuilder')
+const { userDAO } = require('./user-dao')
+const { EntityBuilder } = require('./db/entity-builder')
 
 class UserManager {
     constructor() {
