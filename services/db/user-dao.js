@@ -79,8 +79,8 @@ class UserDAO {
       throw new Error(`Collection is not initilized for ${userDAO.name}. Please, be sure to call init() before calling this method`)
     }
     console.info('[INFO]: Querying for user from the database');
-    const { resources } = await this._container.item.query(id, channel).read();
-    return resources
+    const { resource } = await this._container.item(id, channel).read();
+    return resource;
   }
 
   /**

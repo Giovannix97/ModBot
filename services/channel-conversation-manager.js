@@ -112,8 +112,6 @@ class ChannelConversationManager {
     async addMessage(channelConversation, messageDate, messageType, messageContent) {
         const message = EntityBuilder.createMessageInfo(messageType, messageDate, messageContent);
 
-        console.log(channelConversation.last_messages.length);
-
         if (channelConversation.last_messages.length !== QUEUE_LENGHT)
             channelConversation.last_messages.push(message);
         else {

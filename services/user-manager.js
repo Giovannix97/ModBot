@@ -1,8 +1,7 @@
 "use strict";
 
 const CosmosClient = require("@azure/cosmos").CosmosClient;
-const { userDAO } = require('./user-dao')
-const { EntityBuilder } = require('./db/entity-builder')
+const { userDAO } = require('./db/user-dao');
 
 class UserManager {
     constructor() {
@@ -27,11 +26,10 @@ class UserManager {
 
     /**
      * Add a new user to DB due to incorrect behavior.
-     * @param {string} userId Unique identifier of the user in that specified channel
-     * @param {'telegram' | 'discord' | 'twitch' | 'web'} channel The channel user belongs to
+     * @param {User} user The user that has an incorrect behavior
+     * @typedef {{id, channel}} User
      */
-    async add(userId, channel) {     
-        const user = await EntityBuilder.createUser(userId, channel);
+    async add(user) {     
         await this.userDAO.create(user);
         console.info("[INFO]: New user added!");
     }
