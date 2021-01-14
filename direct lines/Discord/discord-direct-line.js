@@ -44,7 +44,8 @@ const postActivity = async event => {
     else {
         activity = {
             from: { id: event.author.id, name: event.author.username },
-            type: 'message'
+            type: 'message',
+            channelData: {channelId: 'discord', conversationId: `${event.author.id}-${event.guild.id}`}
         }
 
         if (event.content)
@@ -81,8 +82,12 @@ const postActivity = async event => {
  * @param {Discord.Message} event Discord message origanally sent by the user
  */
 const onActivityReceived = (activityId, event) => {
-    const { activity, toDelete } = session[activityId];
+    const { activity, toDelete, toBan } = session[activityId];
     event.channel.send(`<@${event.author.id}> ${activity.text}`);
+
+    if(toBan) {
+        banUser(event, event.author.id);
+    }
 
     if (toDelete) {
         event.delete({
@@ -115,7 +120,10 @@ directLine.activity$
 
 // Unhandled activity logic
 directLine.activity$
-    .filter(activity => activity.type !== 'message' && activity.type !== 'custom.delete' && activity.from.id === process.env.AzureBotName)
+    .filter(activity => activity.type !== 'message' && 
+            activity.type !== 'custom.delete' && 
+            activity.type !== 'custom.ban' &&
+            activity.from.id === process.env.AzureBotName)
     .subscribe(
         activity => {
             console.warn("[WARN]: Unhandled activity", activity)
@@ -127,6 +135,52 @@ directLine.activity$
     .filter(activity => activity.type === 'custom.delete')
     .subscribe(activity => session[activity.replyToId].toDelete = true);
 
+// Handle custom ban activity
+directLine.activity$
+    .filter(activity => activity.type === 'custom.ban')
+    .subscribe(activity => session[activity.replyToId].toBan = true);
+
+
+/**
+ * Helper method that ban a user
+ * @param {Discord.Message} msg 
+ * @param {string} userId 
+ */
+const banUser = (msg, userId) => {
+    const { guild } = msg;
+    let role = guild.roles.cache.find(role => role.name === "Banned");
+    if(!role) {
+        guild.roles.create({
+            data: {
+                name: "Banned",
+                color: "RED",
+                mentionable: false,
+                hoist: false,
+                permissions: Discord.Permissions.FLAGS.READ_MESSAGE_HISTORY
+            }
+        }).then(role => {
+            const channels = guild.channels.cache.array();
+            channels.forEach(channel => {
+                channel.updateOverwrite(role, {SEND_MESSAGES: false, ADD_REACTIONS: false, CREATE_INSTANT_INVITE: false, SPEAK: false, STREAM: false});
+                console.log("Updating permissions for channel", channel.name);
+            })
+            msg.guild.members.resolve(userId).roles.add(role);
+        });
+    }
+    else {
+        msg.guild.members.resolve(userId).roles.add(role);
+    }
+}
+
+/**
+ * Helper method that unban a user
+ * @param {*} guildMemberManager
+ * @param {string} userId Discord id of user to unban
+ */
+const unbanUser = (guildMemberManager, userId) => {
+    guildMemberManager.unban(userId);
+}
+
 /**
  * Helper function that adds attachments received from Discord to Activity object to be sent to Direct Line. Manipulates the passed in Activity.
  * @param {Discord.Message} message Message received from discord
@@ -137,9 +191,7 @@ const discordAttachmentHandler = async (message, activity) => {
 
     if (discordAttachments.size != 0 && !activity.attachments) {
         activity.attachments = [];
-        activity.channelData = {
-            attachmentSizes: []
-        }
+        activity.channelData.attachmentSizes = [];
     }
 
     const keys = discordAttachments.keyArray();

@@ -45,8 +45,11 @@ class ModBot extends ActivityHandler {
                 await this.channelConversationManager.addChannelConversation(channelConversation);
             }
 
-            if (channelConversation.isBanned)
-                await this._deleteActivity(context);
+            if (channelConversation.isBanned) {
+                // Direct line should manage the ban activity
+                if (context.activity.channelId !== "directline")
+                    await this._deleteActivity(context);
+            }
             else {
                 const language = await this._onTextReceived(context, receivedText, channelConversation);
                 await this._onAttachmentsReceived(context, attachments, language, channelConversation);
@@ -64,8 +67,26 @@ class ModBot extends ActivityHandler {
                 return;
             }
 
+            // channelId from directLine or from supported channels
+            const channelId = context.activity.channelData.channelId || context.activity.channelId;
+            // channelId from directLine or from supported channels
+            const conversationId = context.activity.channelData.conversationId || (context.activity.conversation.id + "|" + context.activity.from.id);
+
+            let user = await this.userManager.find(channelId, context.activity.from.id);
+            if (!user) {
+                user = EntityBuilder.createUser(context.activity.from.id, channelId);
+                await this.userManager.add(user);
+            }
+
+            let channelConversation = await this.channelConversationManager.findById(user.channel, conversationId);
+            if (!channelConversation) {
+                // If is the first time that user commint an infraction in this channel, then store it
+                channelConversation = EntityBuilder.createChannelConversation(conversationId, context.activity.from.id, user.channel);
+                await this.channelConversationManager.addChannelConversation(channelConversation);
+            }
+
             const attachments = context.activity.attachments;
-            await this._onAttachmentsReceived(context, attachments);
+            await this._onAttachmentsReceived(context, attachments, "eng", channelConversation);
 
             await next();
         });
@@ -128,6 +149,9 @@ class ModBot extends ActivityHandler {
 
             await context.sendActivity(MessageFactory.text(replyText));
 
+            if (isBanned === true && context.activity.channelId === "directline")
+                await this._directLineBan(context);
+
             await this._deleteActivity(context);
         }
 
@@ -152,21 +176,24 @@ class ModBot extends ActivityHandler {
                 continue;
 
             // Store the message sent for chat flooding detection
-            this.channelConversationManager.addMessage(channelConversation, context.activity.localTimestamp || new Date(), "attachment", attachment.contentUrl);
+            await this.channelConversationManager.addMessage(channelConversation, context.activity.localTimestamp || new Date(), "attachment", attachment.contentUrl);
 
             const response = (await this.contentModerator.checkImage(attachment.contentUrl)).data;
             if (response.IsImageAdultClassified || response.IsImageRacyClassified) {
                 let replyText;
 
-                const isBanned = this._warn(channelConversation);
+                const isBanned = await this._warn(channelConversation);
                 if (isBanned === true) {
                     const user = context.activity.from.name || context.activity.from.id;
-                    replyText = user + locales[response.Language].ban_message;
+                    replyText = user + locales[language].ban_message;
                 }
                 else
                     replyText = locales[language].reply_bad_image;
-                
+
                 await context.sendActivity(MessageFactory.text(replyText));
+
+                if (isBanned === true && context.activity.channelId === "directline")
+                    await this._directLineBan(context);
 
                 await this._deleteActivity(context);
             }
@@ -191,6 +218,16 @@ class ModBot extends ActivityHandler {
         }
     }
 
+    /**
+     * Send a ban message on direct line
+     * @param {TurnContext} context 
+     */
+    async _directLineBan(context) {
+        const banEvent = ActivityFactory.fromObject({ activity_id: context.activity.id });
+        banEvent.type = 'custom.ban';
+        await context.sendActivity(banEvent);
+    }
+    
     /**
      * Delete the activity in context
      * @param {TurnContext} context 
