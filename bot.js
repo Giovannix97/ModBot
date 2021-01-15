@@ -168,6 +168,10 @@ class ModBot extends ActivityHandler {
             if (isBanned === true) {
                 const user = context.activity.from.name || context.activity.from.id;
                 replyText = user + locales[response.Language].ban_message;
+
+                // Get conversation refence and store to db
+                const conversationReference = TurnContext.getConversationReference(context.activity);
+                this.channelConversationManager.addConversationReference(channelConversation, conversationReference);
             }
 
             await context.sendActivity(MessageFactory.text(replyText));

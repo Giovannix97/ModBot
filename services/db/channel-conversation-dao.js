@@ -104,19 +104,19 @@ class ChannelConversationDAO {
 
    /**
     * Update a channel conversation on the db with id equals to 
-    * @param {*} itemId The id of channel conversation
+    * @param {*} id The id of channel conversation
     * @param {ChannelConversation} channelConversation The updated channelConversation object
     * @typedef {{id, user, channel, number_of_warning, isBanned, bannedUntil, last_messages}} ChannelConversation
     * @returns {ChannelConversation}
     */
-   async update(itemId, channelConversation) {
+   async update(id, channelConversation) {
       console.info('[INFO]: Updating a channel conversation in the database...');
       if (!this._container) {
          throw (`Collection is not initialized for ${ChannelConversationDAO.name}. Please, be sure to call init() before call this method`);
       }
 
       const { resource: replaced } = await this._container
-         .item(itemId, channelConversation[this._partitionKey])
+         .item(id, channelConversation[this._partitionKey])
          .replace(channelConversation);
 
       console.info('[INFO]: Updating a channel conversation in the database... done!');

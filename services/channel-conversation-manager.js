@@ -98,6 +98,11 @@ class ChannelConversationManager {
         channelConversation.bannedUntil = null;
         channelConversation.isBanned = false;
         channelConversation.last_messages = [];
+
+        // Delete reference for proactive messages
+        if(channelConversation.conversationReference)
+            delete channelConversation.conversationReference;
+        
         await this._channelConversationDAO.update(channelConversation.id, channelConversation);
     }
 
@@ -152,6 +157,16 @@ class ChannelConversationManager {
     async clearMessages(channelConversation) {
         channelConversation.last_messages = [];
         await this._channelConversationDAO.update(channelConversation.id, channelConversation);
+    }
+
+    /**
+     * Create a reference for proactive messages
+     * @param {*} channelConversation 
+     * @param {*} conversationReference 
+     */
+    async addConversationReference(channelConversation, conversationReference) {
+        channelConversation.conversationReference = conversationReference;
+        this._channelConversationDAO.update(channelConversation.id, channelConversation);
     }
 }
 
