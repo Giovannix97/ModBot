@@ -77,12 +77,12 @@ class ChannelConversationManager {
     async ban(channelConversation, until) {
         channelConversation.isBanned = true;
         if (until)
-            channelConversation.bannedUntil = until;
+            channelConversation.bannedUntil = Math.floor(until.getTime() / 1000);
         else {
             // If until is not specified, by defaults user is banned for one day
             const bannedDate = new Date();
             bannedDate.setDate(bannedDate.getDate() + 1);
-            channelConversation.bannedUntil = bannedDate;
+            channelConversation.bannedUntil = Math.floor(bannedDate.getTime() / 1000);
         }
 
         await this._channelConversationDAO.update(channelConversation.id, channelConversation);
@@ -99,6 +99,27 @@ class ChannelConversationManager {
         channelConversation.isBanned = false;
         channelConversation.last_messages = [];
         await this._channelConversationDAO.update(channelConversation.id, channelConversation);
+    }
+
+    /**
+     * 
+     * @param {*} banExpiration 
+     */
+    async unbanExpiredBan(banExpiration = 1) {
+        const expirationInSeconds = banExpiration * 86400;  // Number of days * seconds in a single day
+        const now = Math.round(new Date().getTime() / 1000);
+        const query = {
+            query: `SELECT * FROM c where c.isBanned=true AND @now - c.bannedUntil >= @banExpiration`,
+            parameters: [
+                { name: "@now", value: now },
+                { name: "@banExpiration", value: expirationInSeconds }
+            ]
+        }
+
+        const toUnban = await this._channelConversationDAO.find(query);
+        toUnban.forEach(async (channelConversation) => await this.unban(channelConversation));
+
+        return toUnban;
     }
 
     /**

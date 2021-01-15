@@ -22,7 +22,7 @@ const client = new Discord.Client();
 const session = {};
 
 client.on('ready', () => {
-    console.log(`Logged in on Discord as ${client.user.tag}`)
+    console.log(`Logged in on Discord as ${client.user.tag}`);
 })
 
 client.on('message', msg => {
@@ -123,6 +123,7 @@ directLine.activity$
     .filter(activity => activity.type !== 'message' && 
             activity.type !== 'custom.delete' && 
             activity.type !== 'custom.ban' &&
+            activity.type !== 'custom.unban' &&
             activity.from.id === process.env.AzureBotName)
     .subscribe(
         activity => {
@@ -140,6 +141,10 @@ directLine.activity$
     .filter(activity => activity.type === 'custom.ban')
     .subscribe(activity => session[activity.replyToId].toBan = true);
 
+// Handle custom unban activity
+directLine.activity$
+    .filter(activity => activity.type === 'custom.unban')
+    .subscribe(activity => unbanUser(activity.channelData.guildId, activity.channelData.userId));
 
 /**
  * Helper method that ban a user
@@ -150,6 +155,7 @@ const banUser = (msg, userId) => {
     const { guild } = msg;
     let role = guild.roles.cache.find(role => role.name === "Banned");
     if(!role) {
+        // If the role does not exist will be created
         guild.roles.create({
             data: {
                 name: "Banned",
@@ -173,12 +179,37 @@ const banUser = (msg, userId) => {
 }
 
 /**
- * Helper method that unban a user
- * @param {*} guildMemberManager
- * @param {string} userId Discord id of user to unban
+ * Helper function that unban a user in specified guild
+ * @param {string} guildId The guild identifier in wich search user
+ * @param {string} userId The discord id to unban
  */
-const unbanUser = (guildMemberManager, userId) => {
-    guildMemberManager.unban(userId);
+const unbanUser = (guildId, userId) => {
+    const guild = client.guilds.resolve(guildId);
+    if(!guild) {
+        console.warn("[WARN]: GUILD not found");
+        return;
+    }
+    const role = guild.roles.cache.find(role => role.name === "Banned");
+    if(!role) {
+        console.warn("[WARN]: Cannot find role you are looking for");
+        return;
+    }
+    let toUnban = guild.members.resolve(userId);
+    if(!toUnban) {
+        console.info("[INFO]: Cannot find user with specified id. Trying to fetch users...");
+        guild.members.fetch().then(members => {
+            toUnban = members.get(userId)
+            if(!toUnban) {
+                console.warn("[WARN]: The user is not in this guild");
+                return;
+            }
+            else
+                console.info("[INFO]: User found! Removing role...");
+            toUnban.roles.remove(role);
+        }).catch(err => console.error(err));
+    }
+    else
+        toUnban.roles.remove(role);
 }
 
 /**

@@ -34,7 +34,7 @@ class EntityBuilder {
             channel,
             number_of_warning: warnings,
             isBanned,
-            bannedUntil,
+            bannedUntil: bannedUntil ? Math.floor(bannedUntil.getTime() / 1000) : bannedUntil, // Save date in timestamp format
             last_messages
         };
 
@@ -52,7 +52,7 @@ class EntityBuilder {
     static createMessageInfo(type, timestamp, content) {
         const message = {
             type,
-            timestamp,
+            timestamp: Math.floor(timestamp.getTime() / 1000), // Save date in timestamp format
             content
         };
 

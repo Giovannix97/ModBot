@@ -22,6 +22,20 @@ class ModBot extends ActivityHandler {
         this.channelConversationManager = new ChannelConversationManager();
         this.channelConversationManager.init();
 
+        /**
+         * @private
+         * A list of user that should be unbanned on next message or event
+         * @todo Replace with a better logic. In extremely case a starvation can accure (If all users in all channels are banned or if no one write anymore)
+         */
+        this._unbannedUserList = [];
+
+        setInterval(async () => {
+            console.info("[INFO]: Retrieving user to unban from database...");
+            const unbannedUsers = await this.channelConversationManager.unbanExpiredBan();
+            this._unbannedUserList = this._unbannedUserList.concat(unbannedUsers);
+            console.info("[INFO]: Retrieving user to unban from database... done!");
+        }, 60000);
+
         // See https://aka.ms/about-bot-activity-message to learn more about the message and other activity types.
         this.onMessage(async (context, next) => {
             const receivedText = context.activity.text;
@@ -45,7 +59,7 @@ class ModBot extends ActivityHandler {
                 await this.channelConversationManager.addChannelConversation(channelConversation);
             }
 
-            if (channelConversation.isBanned) {
+            if (channelConversation.isBanned === true) {
                 // Direct line should manage the ban activity
                 if (context.activity.channelId !== "directline")
                     await this._deleteActivity(context);
@@ -53,6 +67,7 @@ class ModBot extends ActivityHandler {
             else {
                 const language = await this._onTextReceived(context, receivedText, channelConversation);
                 await this._onAttachmentsReceived(context, attachments, language, channelConversation);
+                await this._sendUnbanActivity(context);
             }
 
             // By calling next() you ensure that the next BotHandler is run.
@@ -85,8 +100,16 @@ class ModBot extends ActivityHandler {
                 await this.channelConversationManager.addChannelConversation(channelConversation);
             }
 
-            const attachments = context.activity.attachments;
-            await this._onAttachmentsReceived(context, attachments, "eng", channelConversation);
+            if (channelConversation.isBanned === true) {
+                // Direct line should manage the ban activity
+                if (context.activity.channelId !== "directline")
+                    await this._deleteActivity(context);
+            }
+            else {
+                const attachments = context.activity.attachments;
+                await this._onAttachmentsReceived(context, attachments, "eng", channelConversation);
+                await this._sendUnbanActivity(context);
+            }
 
             await next();
         });
@@ -227,7 +250,39 @@ class ModBot extends ActivityHandler {
         banEvent.type = 'custom.ban';
         await context.sendActivity(banEvent);
     }
-    
+
+    /**
+     * Manage the logic for unban users
+     * @param {TurnContext} context 
+     */
+    async _sendUnbanActivity(context) {
+        if (this._unbannedUserList.length === 0)
+            return;
+
+        for (let i = 0; i < this._unbannedUserList.length; i++) {
+            const channelConversation = this._unbannedUserList[i];
+
+            switch (channelConversation.channel) {
+                case "discord":
+                case "twitch":
+                    // Direct line(s)
+                    const unbanEvent = ActivityFactory.fromObject({ activity_id: context.activity.id });
+                    unbanEvent.type = 'custom.unban';
+                    unbanEvent.channelData = { guildId: channelConversation.id.split("-")[1], userId: channelConversation.user }
+                    await context.sendActivity(unbanEvent);
+                    break;
+                case "telegram":
+                    // TODO
+                    break;
+                default:
+                    // Emulator, web chat and others
+                    break;
+            }
+        }
+
+        this._unbannedUserList = [];
+    }
+
     /**
      * Delete the activity in context
      * @param {TurnContext} context 
