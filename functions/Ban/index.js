@@ -1,11 +1,10 @@
 const https = require('https');
 
 const TELEGRAM_HOST = `api.telegram.org`;
-const TELEGRAM_ENDPOINT = `/bot${process.env.TELEGRAM_TOKEN}/restrictChatMember`
+const METHOD_NAME = `restrictChatMember`
+const TELEGRAM_ENDPOINT = `/bot${process.env.TELEGRAM_TOKEN}/${METHOD_NAME}`
 
 module.exports = async function (context, req) {
-    context.log('JavaScript HTTP trigger function processed a request.');
-
     const channel = req.params.channel;
     const userId = req.params.userId;
 
@@ -19,11 +18,10 @@ module.exports = async function (context, req) {
 
     try {
         const chatId = channel.split("|")[0];
-        console.log(chatId);
         const response = await banOnTelegram(chatId, userId);
         context.res = { body: response }
     }
-    catch(error) {
+    catch (error) {
         context.res = { status: 500 }
     }
 }
