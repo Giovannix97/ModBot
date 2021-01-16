@@ -292,7 +292,11 @@ class ModBot extends ActivityHandler {
      * @param {TurnContext} context 
      */
     async _deleteActivity(context) {
+        const channel = context.activity.channelId;
         try {
+            if(channel === "telegram") {
+                return;
+            }
             await context.deleteActivity(context.activity.id);
         } catch (e) {
             // If the channel does not support deleteActivity, a custom event will be triggered
