@@ -107,27 +107,6 @@ class ChannelConversationManager {
     }
 
     /**
-     * 
-     * @param {*} banExpiration 
-     */
-    async unbanExpiredBan(banExpiration = 1) {
-        const expirationInSeconds = banExpiration * 86400;  // Number of days * seconds in a single day
-        const now = Math.round(new Date().getTime() / 1000);
-        const query = {
-            query: `SELECT * FROM c where c.isBanned=true AND @now - c.bannedUntil >= @banExpiration`,
-            parameters: [
-                { name: "@now", value: now },
-                { name: "@banExpiration", value: expirationInSeconds }
-            ]
-        }
-
-        const toUnban = await this._channelConversationDAO.find(query);
-        toUnban.forEach(async (channelConversation) => await this.unban(channelConversation));
-
-        return toUnban;
-    }
-
-    /**
      * Store a sent message on this channel's conversation
      * @param {ChannelConversation} channelConversation The channel conversation message belongs to
      * @param {Date} messageDate Message sent timestamp
