@@ -1,14 +1,9 @@
 const https = require('https');
 
-const TELEGRAM_HOST = `api.telegram.org`;
-const METHOD_NAME = `restrictChatMember`
-const TELEGRAM_ENDPOINT = `/bot${process.env.TELEGRAM_TOKEN}/${METHOD_NAME}`
-
 module.exports = async function (context, req) {
-    const channel = req.params.channel;
-    const userId = req.params.userId;
+    const { platform, channel, userId } = req.params;
 
-    if (!channel || !userId) {
+    if (!platform || !channel || !userId) {
         context.res = {
             status: 404
         }
@@ -16,22 +11,39 @@ module.exports = async function (context, req) {
         return;
     }
 
+    let response;
+
     try {
-        const chatId = channel.split("|")[0];
-        const response = await unbanOnTelegram(chatId, userId);
-        context.res = { body: response }
+        switch (platform) {
+            case "telegram":
+                response = await unbanOnTelegram(channel, userId);
+                break;
+            case "discord":
+                response = await unbanOnDiscord(channel, userId);
+                break;
+            case "twitch":
+                response = await unbanOnTwitch(channel, userId);
+                break;
+        }
     }
     catch (error) {
         context.res = { status: 500 }
     }
+
+    context.res = { body: response }
 }
 
 /**
  * Perform a request to unban a user on Telegram
- * @param {string | number} chatId Unique identifier for the chat which user belongs.
+ * @param {string} channel Unique identifier for the chat which user belongs.
  * @param {string} userId Unique identifier for user to unban
  */
-const unbanOnTelegram = (chatId, userId) => {
+const unbanOnTelegram = (channel, userId) => {
+    const TELEGRAM_HOST = `api.telegram.org`;
+    const METHOD_NAME = `restrictChatMember`
+    const TELEGRAM_ENDPOINT = `/bot${process.env.TELEGRAM_TOKEN}/${METHOD_NAME}`
+    const chatId = channel.split("|")[0];
+
     const promotedPermission = {
         can_send_messages: true,
         can_send_media_messages: true,
@@ -56,4 +68,22 @@ const unbanOnTelegram = (chatId, userId) => {
 
         request.end();
     });
+}
+
+/**
+ * Perform a request to unban a user on Discord
+ * @param {string} channel 
+ * @param {string} userId 
+ */
+const unbanOnDiscord = (channel, userId) => {
+    // TODO
+}
+
+/**
+ * Perform a request to unban a user on Twitch
+ * @param {string} channel 
+ * @param {string} userId 
+ */
+const unbanOnTwitch = (channel, userId) => {
+    // TODO
 }

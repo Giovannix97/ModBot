@@ -8,6 +8,7 @@ const { ChannelConversationManager } = require('./services/channel-conversation-
 const { locales } = require('./locales');
 const { EntityBuilder } = require('./services/db/entity-builder');
 const axios = require('axios');
+const { Activity } = require('discord.js');
 
 const MAX_WARNINGS = 3;
 
@@ -162,32 +163,18 @@ class ModBot extends ActivityHandler {
             await context.sendActivity(MessageFactory.text(replyText));
 
             if (isBanned === true)
-                switch(context.activity.channelId) {
+                switch (context.activity.channelId) {
                     case "directline":
                         await this._directLineBan(context);
                         break;
                     case "telegram":
-                        const options = {
-                            baseUrl: "",
-                            url: `${process.env.AzureFunctionURL}/api/ban/${channelConversation.id.split('|')[0]}/${channelConversation.user}`,
-                            method: 'GET',
-                            headers: {
-                                'x-functions-key': process.env.BanFunctionKey,
-                            }
-                        };
-                        try {
-                            await axios.request(options);
-                        }
-                        catch(e) {
-                            console.error(e);
-                        }
-        
+                        await this._telegramBan(channelConversation);
                         break;
 
                     default:
                         break;
                 }
-                
+
 
             await this._deleteActivity(context);
         }
@@ -229,8 +216,18 @@ class ModBot extends ActivityHandler {
 
                 await context.sendActivity(MessageFactory.text(replyText));
 
-                if (isBanned === true && context.activity.channelId === "directline")
-                    await this._directLineBan(context);
+                if (isBanned === true)
+                    switch (context.activity.channelId) {
+                        case "directline":
+                            await this._directLineBan(context);
+                            break;
+                        case "telegram":
+                            await this._telegramBan(channelConversation);
+                            break;
+
+                        default:
+                            break;
+                    }
 
                 await this._deleteActivity(context);
             }
@@ -266,6 +263,48 @@ class ModBot extends ActivityHandler {
     }
 
     /**
+     * Send a ban request on Telegram
+     * @param {*} channelConversation 
+     */
+    async _telegramBan(channelConversation) {
+        const options = {
+            baseUrl: "",
+            url: `${process.env.AzureFunctionURL}/api/ban/telegram/${channelConversation.id.split('|')[0]}/${channelConversation.user}`,
+            method: 'GET',
+            headers: {
+                'x-functions-key': process.env.BanFunctionKey,
+            }
+        };
+        try {
+            await axios.request(options);
+        }
+        catch (e) {
+            console.error(e);
+        }
+    }
+
+    /**
+     * @async Delete a message on Telegram
+     * @param {*} channelData 
+     */
+    async _deleteTelegramMessage(channelData) {
+        const options = {
+            baseUrl: "",
+            url: `${process.env.AzureFunctionURL}/api/deleteMsg/${channelData.message.chat.id}/${channelData.message.message_id}`,
+            method: 'GET',
+            headers: {
+                'x-functions-key': process.env.BanFunctionKey,
+            }
+        };
+        try {
+            await axios.request(options);
+        }
+        catch (e) {
+            console.error(e);
+        }
+    }
+
+    /**
      * Manage the logic for unban users
      * @param {TurnContext} context 
      * @param {*} channelConversation Channel conversation to unban
@@ -286,7 +325,7 @@ class ModBot extends ActivityHandler {
             case "telegram":
                 const options = {
                     baseUrl: "",
-                    url: `${process.env.AzureFunctionURL}/api/ban/${channelConversation.id.split('|')[0]}/${channelConversation.user}`,
+                    url: `${process.env.AzureFunctionURL}/api/ban/${channelConversation.channel}/${channelConversation.id.split('|')[0]}/${channelConversation.user}`,
                     method: 'DELETE',
                     headers: {
                         'x-functions-key': process.env.UnbanFunctionKey,
@@ -295,7 +334,7 @@ class ModBot extends ActivityHandler {
                 try {
                     await axios.request(options);
                 }
-                catch(e) {
+                catch (e) {
                     console.error(e);
                 }
 
@@ -313,10 +352,14 @@ class ModBot extends ActivityHandler {
     async _deleteActivity(context) {
         const channel = context.activity.channelId;
         try {
-            if(channel === "telegram") {
-                return;
+            switch (channel) {
+                case "telegram":
+                    this._deleteTelegramMessage(context.activity.channelData)
+                    break;
+                default:
+                    await context.deleteActivity(context.activity.id);
+                    break;
             }
-            await context.deleteActivity(context.activity.id);
         } catch (e) {
             // If the channel does not support deleteActivity, a custom event will be triggered
             const deleteEvent = ActivityFactory.fromObject({ activity_id: context.activity.id });
