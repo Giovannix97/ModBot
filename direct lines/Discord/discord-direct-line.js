@@ -161,7 +161,7 @@ const banUser = (msg, userId) => {
                 name: "Banned",
                 color: "RED",
                 mentionable: false,
-                hoist: false,
+                hoist: true,
                 permissions: Discord.Permissions.FLAGS.READ_MESSAGE_HISTORY
             }
         }).then(role => {

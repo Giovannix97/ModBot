@@ -7,6 +7,8 @@ const { UserManager } = require('./services/user-manager');
 const { ChannelConversationManager } = require('./services/channel-conversation-manager');
 const { locales } = require('./locales');
 const { EntityBuilder } = require('./services/db/entity-builder');
+const axios = require('axios');
+const { Activity } = require('discord.js');
 
 const MAX_WARNINGS = 3;
 
@@ -21,20 +23,6 @@ class ModBot extends ActivityHandler {
 
         this.channelConversationManager = new ChannelConversationManager();
         this.channelConversationManager.init();
-
-        /**
-         * @private
-         * A list of user that should be unbanned on next message or event
-         * @todo Replace with a better logic. In extremely case a starvation can accure (If all users in all channels are banned or if no one write anymore)
-         */
-        this._unbannedUserList = [];
-
-        setInterval(async () => {
-            console.info("[INFO]: Retrieving user to unban from database...");
-            const unbannedUsers = await this.channelConversationManager.unbanExpiredBan();
-            this._unbannedUserList = this._unbannedUserList.concat(unbannedUsers);
-            console.info("[INFO]: Retrieving user to unban from database... done!");
-        }, 60000);
 
         // See https://aka.ms/about-bot-activity-message to learn more about the message and other activity types.
         this.onMessage(async (context, next) => {
@@ -67,7 +55,6 @@ class ModBot extends ActivityHandler {
             else {
                 const language = await this._onTextReceived(context, receivedText, channelConversation);
                 await this._onAttachmentsReceived(context, attachments, language, channelConversation);
-                await this._sendUnbanActivity(context);
             }
 
             // By calling next() you ensure that the next BotHandler is run.
@@ -108,7 +95,6 @@ class ModBot extends ActivityHandler {
             else {
                 const attachments = context.activity.attachments;
                 await this._onAttachmentsReceived(context, attachments, "eng", channelConversation);
-                await this._sendUnbanActivity(context);
             }
 
             await next();
@@ -168,12 +154,27 @@ class ModBot extends ActivityHandler {
             if (isBanned === true) {
                 const user = context.activity.from.name || context.activity.from.id;
                 replyText = user + locales[response.Language].ban_message;
+
+                // Get conversation refence and store to db
+                const conversationReference = TurnContext.getConversationReference(context.activity);
+                this.channelConversationManager.addConversationReference(channelConversation, conversationReference);
             }
 
             await context.sendActivity(MessageFactory.text(replyText));
 
-            if (isBanned === true && context.activity.channelId === "directline")
-                await this._directLineBan(context);
+            if (isBanned === true)
+                switch (context.activity.channelId) {
+                    case "directline":
+                        await this._directLineBan(context);
+                        break;
+                    case "telegram":
+                        await this._telegramBan(channelConversation);
+                        break;
+
+                    default:
+                        break;
+                }
+
 
             await this._deleteActivity(context);
         }
@@ -215,8 +216,18 @@ class ModBot extends ActivityHandler {
 
                 await context.sendActivity(MessageFactory.text(replyText));
 
-                if (isBanned === true && context.activity.channelId === "directline")
-                    await this._directLineBan(context);
+                if (isBanned === true)
+                    switch (context.activity.channelId) {
+                        case "directline":
+                            await this._directLineBan(context);
+                            break;
+                        case "telegram":
+                            await this._telegramBan(channelConversation);
+                            break;
+
+                        default:
+                            break;
+                    }
 
                 await this._deleteActivity(context);
             }
@@ -252,35 +263,86 @@ class ModBot extends ActivityHandler {
     }
 
     /**
+     * Send a ban request on Telegram
+     * @param {*} channelConversation 
+     */
+    async _telegramBan(channelConversation) {
+        const options = {
+            baseUrl: "",
+            url: `${process.env.AzureFunctionURL}/api/ban/telegram/${channelConversation.id.split('|')[0]}/${channelConversation.user}`,
+            method: 'GET',
+            headers: {
+                'x-functions-key': process.env.BanFunctionKey,
+            }
+        };
+        try {
+            await axios.request(options);
+        }
+        catch (e) {
+            console.error(e);
+        }
+    }
+
+    /**
+     * @async Delete a message on Telegram
+     * @param {*} channelData 
+     */
+    async _deleteTelegramMessage(channelData) {
+        const options = {
+            baseUrl: "",
+            url: `${process.env.AzureFunctionURL}/api/deleteMsg/${channelData.message.chat.id}/${channelData.message.message_id}`,
+            method: 'GET',
+            headers: {
+                'x-functions-key': process.env.BanFunctionKey,
+            }
+        };
+        try {
+            await axios.request(options);
+        }
+        catch (e) {
+            console.error(e);
+        }
+    }
+
+    /**
      * Manage the logic for unban users
      * @param {TurnContext} context 
+     * @param {*} channelConversation Channel conversation to unban
      */
-    async _sendUnbanActivity(context) {
-        if (this._unbannedUserList.length === 0)
-            return;
+    async sendUnbanActivity(context, channelConversation) {
 
-        for (let i = 0; i < this._unbannedUserList.length; i++) {
-            const channelConversation = this._unbannedUserList[i];
+        this.channelConversationManager.unban(channelConversation);
 
-            switch (channelConversation.channel) {
-                case "discord":
-                case "twitch":
-                    // Direct line(s)
-                    const unbanEvent = ActivityFactory.fromObject({ activity_id: context.activity.id });
-                    unbanEvent.type = 'custom.unban';
-                    unbanEvent.channelData = { guildId: channelConversation.id.split("-")[1], userId: channelConversation.user }
-                    await context.sendActivity(unbanEvent);
-                    break;
-                case "telegram":
-                    // TODO
-                    break;
-                default:
-                    // Emulator, web chat and others
-                    break;
-            }
+        switch (channelConversation.channel) {
+            case "discord":
+            case "twitch":
+                // Direct line(s)
+                const unbanEvent = ActivityFactory.fromObject({ activity_id: context.activity.id });
+                unbanEvent.type = 'custom.unban';
+                unbanEvent.channelData = { guildId: channelConversation.id.split("-")[1], userId: channelConversation.user }
+                await context.sendActivity(unbanEvent);
+                break;
+            case "telegram":
+                const options = {
+                    baseUrl: "",
+                    url: `${process.env.AzureFunctionURL}/api/ban/${channelConversation.channel}/${channelConversation.id.split('|')[0]}/${channelConversation.user}`,
+                    method: 'DELETE',
+                    headers: {
+                        'x-functions-key': process.env.UnbanFunctionKey,
+                    }
+                };
+                try {
+                    await axios.request(options);
+                }
+                catch (e) {
+                    console.error(e);
+                }
+
+                break;
+            default:
+                // Emulator, web chat and others
+                break;
         }
-
-        this._unbannedUserList = [];
     }
 
     /**
@@ -288,8 +350,16 @@ class ModBot extends ActivityHandler {
      * @param {TurnContext} context 
      */
     async _deleteActivity(context) {
+        const channel = context.activity.channelId;
         try {
-            await context.deleteActivity(context.activity.id);
+            switch (channel) {
+                case "telegram":
+                    this._deleteTelegramMessage(context.activity.channelData)
+                    break;
+                default:
+                    await context.deleteActivity(context.activity.id);
+                    break;
+            }
         } catch (e) {
             // If the channel does not support deleteActivity, a custom event will be triggered
             const deleteEvent = ActivityFactory.fromObject({ activity_id: context.activity.id });

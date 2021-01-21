@@ -19,6 +19,7 @@ const { ModBot } = require('./bot');
 
 // Create HTTP server
 const server = restify.createServer();
+server.use(restify.plugins.bodyParser({ mapParams: true }));
 server.listen(process.env.port || process.env.PORT || 3978, () => {
     console.log(`\n${ server.name } listening to ${ server.url }`);
     console.log('\nGet Bot Framework Emulator: https://aka.ms/botframework-emulator');
@@ -56,14 +57,30 @@ const onTurnErrorHandler = async (context, error) => {
 adapter.onTurnError = onTurnErrorHandler;
 
 // Create the main dialog.
-const myBot = new ModBot();
+const modBot = new ModBot();
 
 // Listen for incoming requests.
 server.post('/api/messages', (req, res) => {
     adapter.processActivity(req, res, async (context) => {
         // Route to main dialog.
-        await myBot.run(context);
+        await modBot.run(context);
     });
+});
+
+server.post('/api/unban', async (req, resp) => {
+    const { unbannedUsers } = req.params;
+    
+    if(!unbannedUsers) {
+        resp.send(500);
+        return;
+    }
+
+    for (let i = 0; i < unbannedUsers.length; i++) {
+        const channelConversation = unbannedUsers[i];
+        await adapter.continueConversation(channelConversation.conversationReference, async context => await modBot.sendUnbanActivity(context, channelConversation))
+    }
+
+    resp.send(200);
 });
 
 // Listen for Upgrade requests for Streaming.
@@ -79,6 +96,6 @@ server.on('upgrade', (req, socket, head) => {
     streamingAdapter.useWebSocket(req, socket, head, async (context) => {
         // After connecting via WebSocket, run this logic for every request sent over
         // the WebSocket connection.
-        await myBot.run(context);
+        await modBot.run(context);
     });
 });
