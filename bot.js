@@ -102,7 +102,9 @@ class ModBot extends ActivityHandler {
 
         this.onMembersAdded(async (context, next) => {
             const membersAdded = context.activity.membersAdded;
-            const welcomeText = 'Hello and welcome!';
+            const user = context.activity.from.name || context.activity.from.id;
+            let index = Math.floor(Math.random() * Math.floor(locales["ita"].on_members_added_message.length));
+            const welcomeText = user + locales["ita"].on_members_added_message[index];
             for (let cnt = 0; cnt < membersAdded.length; ++cnt) {
                 if (membersAdded[cnt].id !== context.activity.recipient.id) {
                     await context.sendActivity(MessageFactory.text(welcomeText, welcomeText));
