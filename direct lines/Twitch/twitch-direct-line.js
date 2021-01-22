@@ -24,8 +24,8 @@ const client = twitchBot.Client({
         secure: true
     },
     identity: {
-        username: 'kekkox_',
-        password: 'oauth:n7ck2sc6vs8nru3vpw0mju21m6h0ve'
+        username: process.env.TwitchBotName,
+        password: process.env.TwitchBotToken
     },
     channels: ['kekkox_']
 })
