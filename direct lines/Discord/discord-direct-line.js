@@ -45,7 +45,7 @@ const postActivity = async event => {
         activity = {
             from: { id: event.author.id, name: event.author.username },
             type: 'message',
-            channelData: {channelId: 'discord', conversationId: `${event.author.id}-${event.guild.id}`}
+            channelData: {channelId: 'discord', conversationId: `${event.guild.id}|${event.author.id}`}
         }
 
         if (event.content)
