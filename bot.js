@@ -33,7 +33,7 @@ class ModBot extends ActivityHandler {
             const channelId = context.activity.channelData.channelId || context.activity.channelId;
             // channelId from directLine or from supported channels
             const conversationId = context.activity.channelData.conversationId || (context.activity.conversation.id + "|" + context.activity.from.id);
-
+            
             let user = await this.userManager.find(channelId, context.activity.from.id);
             if (!user) {
                 user = EntityBuilder.createUser(context.activity.from.id, channelId);
@@ -54,6 +54,33 @@ class ModBot extends ActivityHandler {
             }
             else {
                 const language = await this._onTextReceived(context, receivedText, channelConversation);
+                // If the user sends a text message
+                if(language) {
+                    const SECONDS_LIMIT = 3;
+                    const conversationLength = channelConversation.last_messages.length;
+                    if(conversationLength > 3) {
+                        const lastDelay = channelConversation.last_messages[conversationLength - 1].timestamp -
+                                          channelConversation.last_messages[conversationLength - 2].timestamp;
+                         
+                        const secondLastDelay = channelConversation.last_messages[conversationLength - 2].timestamp -
+                                                 channelConversation.last_messages[conversationLength - 3].timestamp;
+                            
+                        // Flooding detected                        
+                        if(lastDelay < SECONDS_LIMIT && secondLastDelay < SECONDS_LIMIT) {
+                            console.info("The user is sending messages to quickly.");
+                            const isBanned = await this._warn(channelConversation);
+                            let replyText = "";
+                            if (isBanned === true) {
+                                const user = context.activity.from.name || context.activity.from.id;
+                                replyText = user + locales[language].ban_message;
+                            } else {
+                                replyText = locales[language].reply_flooding;
+                            }
+                            
+                            await context.sendActivity(MessageFactory.text(replyText));
+                        }                         
+                    }
+                }
                 await this._onAttachmentsReceived(context, attachments, language, channelConversation);
             }
 
@@ -145,10 +172,10 @@ class ModBot extends ActivityHandler {
         if (response.Classification) {
             if (response.Classification.ReviewRecommended)
                 replyText += locales[response.Language].reply_classification;
-        } else {
-            if (response.Terms) {
+        } else if (response.Terms){
                 replyText += locales[response.Language].reply_dirty_words;
-            }
+        } else if (this._isScreaming(receivedText, 55) === true) {                      // The received text is all uppercase     
+                replyText += locales[response.Language].reply_to_screaming;
         }
 
         if (replyText != "") {
@@ -369,6 +396,22 @@ class ModBot extends ActivityHandler {
             await context.sendActivity(deleteEvent);
         }
     }
+
+    /**
+     * Checks if most of the sentence is capitalized. In a chat,to write all the text in uppercase
+       is equal to scream
+     * @param {string} text A string representing the sentence
+     * @param {number} threshold An integer value that represents the percentage of capital letters allowed
+     */
+    _isScreaming(text, threshold = 55) {
+        const upperLength = text.replace(/[^A-Z]/g, '').length;
+        const percentage = (upperLength * 100) / text.replace(/\s/g, '').length;
+
+        if(percentage >= threshold){
+            return true;
+        }
+        return false;
+    } 
 }
 
 module.exports.ModBot = ModBot;
