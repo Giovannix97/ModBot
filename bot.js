@@ -321,7 +321,8 @@ class ModBot extends ActivityHandler {
                 // Direct line(s)
                 const unbanEvent = ActivityFactory.fromObject({ activity_id: context.activity.id });
                 unbanEvent.type = 'custom.unban';
-                unbanEvent.channelData = { guildId: channelConversation.id.split("-")[1], userId: channelConversation.user }
+                const [guildId, userId] = channelConversation.id.split("|");
+                unbanEvent.channelData = { guildId, userId }
                 await context.sendActivity(unbanEvent);
                 break;
             case "telegram":
