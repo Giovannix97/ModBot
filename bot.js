@@ -164,7 +164,7 @@ class ModBot extends ActivityHandler {
         if (response.PII)
             if (response.PII.Address || response.PII.Phone || response.PII.Email) {
                 // No warnings for sharing personal info's
-                replyText = `${user}: ${locales[response.Language].reply_personal_info}`;
+                replyText = context.activity.channelId === "directline" ? `${locales[response.Language].reply_personal_info}` : `${user}: ${locales[response.Language].reply_personal_info}`;
                 await context.sendActivity(MessageFactory.text(replyText));
                 return response.Language;
             }
@@ -172,24 +172,29 @@ class ModBot extends ActivityHandler {
         // Azure Content Moderator service finds insults and forbidden language
         if (response.Classification) {
             if (response.Classification.ReviewRecommended)
-                replyText += `${user}: ${locales[response.Language].reply_classification}`;
+                replyText += `${locales[response.Language].reply_classification}`;
         } else if (response.Terms){
-                replyText += `${user}: ${locales[response.Language].reply_dirty_words}`;
+                replyText += `${locales[response.Language].reply_dirty_words}`;
         } else if (this._isScreaming(receivedText, 55) === true) {       
                 // The received text is all uppercase     
-                replyText += `${user}: ${locales[response.Language].reply_to_screaming}`;
+                replyText = context.activity.channelId === "directline" ? `${locales[response.Language].reply_to_screaming}` : `${user}: ${locales[response.Language].reply_to_screaming}`;
+                await context.sendActivity(MessageFactory.text(replyText));
+                return response.Language;
         }
 
         if (replyText != "") {
             const isBanned = await this._warn(channelConversation);
             if (isBanned === true) {
                 
-                replyText = `${user}${locales[response.Language].ban_message}`;
+                replyText = `${locales[response.Language].ban_message}`;
 
                 // Get conversation refence and store to db
                 const conversationReference = TurnContext.getConversationReference(context.activity);
                 this.channelConversationManager.addConversationReference(channelConversation, conversationReference);
             }
+
+            if(context.activity.channelId !== "directline")
+                replyText = `${user}: ${replyText}`;
 
             await context.sendActivity(MessageFactory.text(replyText));
 
