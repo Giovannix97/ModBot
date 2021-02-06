@@ -1,8 +1,9 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
-const { Attachment, ActivityHandler, MessageFactory, ActivityFactory, TurnContext } = require('botbuilder');
+const { Attachment, ActivityHandler, MessageFactory, ActivityFactory, TurnContext, ConsoleTranscriptLogger } = require('botbuilder');
 const { ContentModerator } = require('./services/content-moderator');
+const { TextAnalytics } = require('./services/text-analytics');
 const { UserManager } = require('./services/user-manager');
 const { ChannelConversationManager } = require('./services/channel-conversation-manager');
 const { locales } = require('./locales');
@@ -17,6 +18,8 @@ class ModBot extends ActivityHandler {
         super();
         // Field for the moderation service
         this.contentModerator = new ContentModerator();
+        // Field for the text analytics service
+        this.textAnalytics = new TextAnalytics();
         // Field for the persistence
         this.userManager = new UserManager();
         this.userManager.init();
@@ -33,7 +36,7 @@ class ModBot extends ActivityHandler {
             const channelId = context.activity.channelData.channelId || context.activity.channelId;
             // channelId from directLine or from supported channels
             const conversationId = context.activity.channelData.conversationId || (context.activity.conversation.id + "|" + context.activity.from.id);
-            
+
             let user = await this.userManager.find(channelId, context.activity.from.id);
             if (!user) {
                 user = EntityBuilder.createUser(context.activity.from.id, channelId);
@@ -55,18 +58,18 @@ class ModBot extends ActivityHandler {
             else {
                 const language = await this._onTextReceived(context, receivedText, channelConversation);
                 // If the user sends a text message
-                if(language) {
+                if (language) {
                     const SECONDS_LIMIT = 3;
                     const conversationLength = channelConversation.last_messages.length;
-                    if(conversationLength > 3) {
+                    if (conversationLength > 3) {
                         const lastDelay = channelConversation.last_messages[conversationLength - 1].timestamp -
-                                          channelConversation.last_messages[conversationLength - 2].timestamp;
-                         
+                            channelConversation.last_messages[conversationLength - 2].timestamp;
+
                         const secondLastDelay = channelConversation.last_messages[conversationLength - 2].timestamp -
-                                                 channelConversation.last_messages[conversationLength - 3].timestamp;
-                            
+                            channelConversation.last_messages[conversationLength - 3].timestamp;
+
                         // Flooding detected                        
-                        if(lastDelay < SECONDS_LIMIT && secondLastDelay < SECONDS_LIMIT) {
+                        if (lastDelay < SECONDS_LIMIT && secondLastDelay < SECONDS_LIMIT) {
                             console.info("The user is sending messages to quickly.");
                             const isBanned = await this._warn(channelConversation);
                             let replyText = "";
@@ -76,9 +79,9 @@ class ModBot extends ActivityHandler {
                             } else {
                                 replyText = locales[language].reply_flooding;
                             }
-                            
+
                             await context.sendActivity(MessageFactory.text(replyText));
-                        }                         
+                        }
                     }
                 }
                 await this._onAttachmentsReceived(context, attachments, language, channelConversation);
@@ -161,39 +164,44 @@ class ModBot extends ActivityHandler {
         let replyText = "";
         const user = context.activity.from.name || context.activity.from.id;
 
-        if (response.PII)
-            if (response.PII.Address || response.PII.Phone || response.PII.Email) {
-                // No warnings for sharing personal info's
-                replyText = context.activity.channelId === "directline" ? `${locales[response.Language].reply_personal_info}` : `${user}: ${locales[response.Language].reply_personal_info}`;
-                await context.sendActivity(MessageFactory.text(replyText));
-                return response.Language;
-            }
-
         // Azure Content Moderator service finds insults and forbidden language
         if (response.Classification) {
             if (response.Classification.ReviewRecommended)
                 replyText += `${locales[response.Language].reply_classification}`;
-        } else if (response.Terms){
-                replyText += `${locales[response.Language].reply_dirty_words}`;
-        } else if (this._isScreaming(receivedText, 55) === true) {       
-                // The received text is all uppercase     
-                replyText = context.activity.channelId === "directline" ? `${locales[response.Language].reply_to_screaming}` : `${user}: ${locales[response.Language].reply_to_screaming}`;
+        } else if (response.Terms) {
+            replyText += `${locales[response.Language].reply_dirty_words}`;
+        } else if (this._isScreaming(receivedText, 55) === true) {
+            // The received text is all uppercase     
+            replyText = context.activity.channelId === "directline" ? `${locales[response.Language].reply_to_screaming}` : `${user}: ${locales[response.Language].reply_to_screaming}`;
+            await context.sendActivity(MessageFactory.text(replyText));
+            return response.Language;
+        }
+
+        const textAnalyticsResponse = (await this.textAnalytics.checkPII("1", receivedText)).data;
+
+        // Moderation on personal infos
+        // Message is not deleted automatically: the user can do it manually if he wants.
+        if (textAnalyticsResponse.documents[0].entities.length > 0) {
+            // Text Analytics service considers simple names as personal infos. We need to filter the response
+            const forbiddenEntities = textAnalyticsResponse.documents[0].entities.filter(entity => entity.category !== "Person");
+            if (forbiddenEntities.length > 0) {
+                replyText = context.activity.channelId === "directline" ? `${locales[response.Language].reply_personal_info}` : `${user}: ${locales[response.Language].reply_personal_info}`;
+                // No warnings for sharing personal infos        
                 await context.sendActivity(MessageFactory.text(replyText));
                 return response.Language;
+            }
         }
 
         if (replyText != "") {
             const isBanned = await this._warn(channelConversation);
             if (isBanned === true) {
-                
                 replyText = `${locales[response.Language].ban_message}`;
-
                 // Get conversation refence and store to db
                 const conversationReference = TurnContext.getConversationReference(context.activity);
                 this.channelConversationManager.addConversationReference(channelConversation, conversationReference);
             }
 
-            if(context.activity.channelId !== "directline")
+            if (context.activity.channelId !== "directline")
                 replyText = `${user}: ${replyText}`;
 
             await context.sendActivity(MessageFactory.text(replyText));
@@ -206,11 +214,9 @@ class ModBot extends ActivityHandler {
                     case "telegram":
                         await this._telegramBan(channelConversation);
                         break;
-
                     default:
                         break;
                 }
-
 
             await this._deleteActivity(context);
         }
@@ -415,11 +421,11 @@ class ModBot extends ActivityHandler {
         const upperLength = text.replace(/[^A-Z]/g, '').length;
         const percentage = (upperLength * 100) / text.replace(/\s/g, '').length;
 
-        if(percentage >= threshold){
+        if (percentage >= threshold) {
             return true;
         }
         return false;
-    } 
+    }
 }
 
 module.exports.ModBot = ModBot;
