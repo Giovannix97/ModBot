@@ -8,7 +8,6 @@ const { ChannelConversationManager } = require('./services/channel-conversation-
 const { locales } = require('./locales');
 const { EntityBuilder } = require('./services/db/entity-builder');
 const axios = require('axios');
-const { Activity } = require('discord.js');
 
 const MAX_WARNINGS = 3;
 

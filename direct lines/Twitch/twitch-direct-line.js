@@ -9,7 +9,7 @@ const { Activity, DirectLine } = require('botframework-directlinejs');
 const twitchBot = require('tmi.js');
 
 // Getting env from .env file
-const ENV_FILE = path.join(__dirname, '../.env');
+const ENV_FILE = path.join(__dirname, '.env');
 dotenv.config({ path: ENV_FILE });
 
 // Init direct line

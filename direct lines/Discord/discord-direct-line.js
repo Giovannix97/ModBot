@@ -9,7 +9,7 @@ const Discord = require('discord.js');
 const { Activity, DirectLine } = require('botframework-directlinejs');
 const mime = require('mime-types');
 
-const ENV_FILE = path.join(__dirname, '../.env');
+const ENV_FILE = path.join(__dirname, '.env');
 dotenv.config({ path: ENV_FILE });
 
 const directLine = new DirectLine({
