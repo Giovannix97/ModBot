@@ -4,6 +4,12 @@ A tool for moderate language and contents in several chat platforms.
 
 Developed by [Giovanni Iacovazzo](https://github.com/Giovannix97) and [Francesco Capriglione](https://github.com/kekkox) for Cloud Computing exam at the [Università degli Studi di Salerno](https://www.unisa.it/).
 
+View the **live demo** (or [download it](Demo.mov))!
+
+[![Live demo](assets/img/video.png)](https://www.youtube.com/watch?v=_2KD-kiYM-E)
+
+Or go to [PPT](Presentazione-cloud.pptx).
+
 ## **📋 Index**
 - [Project idea](#💡-Project-Idea)
 - [Architecture](#📐-Architecture)
@@ -78,23 +84,6 @@ For this project we have used this tools provided by Azure:
 ---
 Make sure you have setted all enviroment variables in `.env` file.
 
-```sh
-ContentModeratorKey=CONTENT_MODERATOR_KEY
-ContentModeratorEndpoint=CONTENT_MODERATOR_ENDPOINT
-
-CosmosDbKey=COSMOS_DB_KEY
-CosmosDbEndpoint=COSMOS_DB_ENDPOINT
-DatabaseId=DATABASE_NAME
-ContainerId=USER_CONTAINER_NAME
-PartitionKey=USER_PARTITION_KEY
-ChannelConversationContainerId=CHANNEL_CONVERSATION_CONTAINER_NAME
-ChannelConversationPartitionKey=CHANNEL_CONVERSATION_CONTAINER_PARTITION_KEY
-
-AzureFunctionURL=AZURE_FUNCTION_ENDPOINT
-BanFunctionKey=BAN_FUNCTION_AUTH_KEY
-UnbanFunctionKey=UNBAN_FUNCTION_AUTH_KEY
-```
-
 Then install modules
 
 ```bash
@@ -137,7 +126,7 @@ Before you deploy the bot, you must generate `web.config` file.
 az bot prepare-deploy --code-dir "<PATH_TO_THIS_PROJECT>" --lang Javascript
 ```
 
-In alternative, you can use the `web.config` file provided [there](https://github.com/Giovannix97/ModBot/blob/main/web.config).
+In alternative, you can use the `web.config` file provided [here](https://github.com/Giovannix97/ModBot/blob/main/web.config).
 
 ### Manual deploy
 ---
@@ -180,12 +169,14 @@ Then install dependencies
 npm install
 ```
 
+Finally, set all  enviroment variables in `.env` file. 
+
 Now, you can create a .zip file containing:
 > 📁 node_modules  
 > 📄 .env  
 > 📄 discord-direct-line.js  
 
-Deploy this file in the app service of the bot as a webjob or deploy as a different app service.
+Deploy this file in the app service of the bot as a webjob or deploy as a different app service. 
 
 ## Further reading
 
