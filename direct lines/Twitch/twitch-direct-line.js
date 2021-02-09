@@ -85,17 +85,11 @@ const postActivity = async (channel, tags, message) => {
 const onActivityReceived = async (activityId, channel, tags) => {
     const { activity, toDelete, toBan } = session[activityId];
 
-    console.log(activity, channel, tags, toDelete, toBan);
-
-    if (toBan) {
-        console.log("You will banned...");
+    if (toBan)
         banUser(channel, tags.username);
-    }
 
-    if (toDelete) {
-        console.log("This message should be deleted", tags.id);
+    if (toDelete)
         deleteMessage(channel, tags.id);
-    }
 
     delete session[activityId];
 
@@ -139,10 +133,7 @@ directLine.activity$
 // Handle custom unban activity
 directLine.activity$
     .filter(activity => activity.type === 'custom.unban')
-    .subscribe(activity => {
-        console.log(activity.channelData);
-        unbanUser(activity.channelData.guildId, activity.channelData.userId).catch(console.error);
-    });
+    .subscribe(activity => unbanUser(activity.channelData.guildId, activity.channelData.userId).catch(console.error));
 
 /**
  * Helper method that ban a user.

@@ -166,10 +166,7 @@ const banUser = (msg, userId) => {
             }
         }).then(role => {
             const channels = guild.channels.cache.array();
-            channels.forEach(channel => {
-                channel.updateOverwrite(role, {SEND_MESSAGES: false, ADD_REACTIONS: false, CREATE_INSTANT_INVITE: false, SPEAK: false, STREAM: false});
-                console.log("Updating permissions for channel", channel.name);
-            })
+            channels.forEach(channel => channel.updateOverwrite(role, {SEND_MESSAGES: false, ADD_REACTIONS: false, CREATE_INSTANT_INVITE: false, SPEAK: false, STREAM: false}))
             msg.guild.members.resolve(userId).roles.add(role);
         });
     }
