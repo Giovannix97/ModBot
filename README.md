@@ -2,13 +2,16 @@
 
 A tool for moderate language and contents in several chat platforms.
 
-Developed by [Giovanni Iacovazzo](https://github.com/Giovannix97) and [Francesco Capriglione](https://github.com/kekkox) for Cloud Computing exam at the [Università degli Studi di Salerno](https://www.unisa.it/).
-
 View the **live demo** (or [download it](Demo.mov))!
 
 [![Live demo](assets/img/video.png)](https://www.youtube.com/watch?v=_2KD-kiYM-E)
 
 Or go to [PPT](Presentazione-cloud.pptx).
+
+---
+Developed for Cloud Computing exam at the [Università degli Studi di Salerno](https://www.unisa.it/) and for *AzureChamp 2021* by: 
+- [Giovanni Iacovazzo](https://github.com/Giovannix97): 📧 [g.iacovazzo2@studenti.unisa.it](mailto:g.iacovazzo2@studenti.unisa.it)
+- [Francesco Capriglione](https://github.com/kekkox): 📧 [f.capriglione4@studenti.unisa.it](mailto:f.capriglione4@studenti.unisa.it)
 
 ## **📋 Index**
 - [Project idea](#💡-Project-Idea)
@@ -60,12 +63,96 @@ When a message coming from the channels, it's collected by the bot service that:
 
 
 ## **🔧 Azure Tools**
-For this project we have used this tools provided by Azure:
-- [Cosmos DB](https://azure.microsoft.com/en-us/services/cosmos-db): for reading / storing data about users and channels in which they talk.- App Service: for hosting ModBot and direct lines servers.
+For this project we have used severals tools provided by Azure:
+
+- [Cosmos DB](https://azure.microsoft.com/en-us/services/cosmos-db): for reading / storing data about users and channels in which they talk.
+- [App Service](https://azure.microsoft.com/en-us/services/app-service): for hosting ModBot and direct lines servers.
 - [Azure Functions](https://azure.microsoft.com/en-us/services/functions): HTTP triggered for message management and ban mechanism, Time Triggered for unban mechanism.
 - [Bot Service](https://azure.microsoft.com/en-us/services/bot-services): The core of the bot
 - [Content Moderator](https://azure.microsoft.com/en-us/services/cognitive-services/content-moderator): processes text and images to detect inappropriate content.
 - [Text Analytics](https://azure.microsoft.com/en-us/services/cognitive-services/text-analytics): detect personal information exchanged in the chat
+
+In this section a tutorial for the creation of all the required Azure resources is proposed. In order to maintain the cost low as much as possible will be chosen the free tier when available.
+
+First thing first an Azure Resource Group is required, this is pretty straightforward to do using the Azure Portal and can also be done dinamically while creating the first resource. ATTENTION The selected region must be the same for all the remaining resources.
+
+Now let's start with other tools! 
+### Cosmos DB
+---
+
+[Cosmos DB](https://azure.microsoft.com/en-us/services/cosmos-db) is used for reading / storing data about users and channels in which they talk.
+1. Create a new resource and using the search bar find `Azure Cosmos DB`.
+2. Provide the details for the Subscription, Resource Group (if you don't have one, here you can create a new one), chose a name and select your favourite Location.
+3. For capacity mode you can choose *Provisioned throughput* or *Serverless*. We suggests the second one for best pricing.
+4. Leave all the others fields as default and press Review + create.
+When the resource is been correctly deployed go to resource.
+5. In the lateral menu choose 'Keys'.
+6. Search for the 'URI', copy it and save it in the file *.env* in the main folder of the project in `CosmosDbEndpoint` field.
+7. Search for the 'PRIMARY KEY', copy it and save it in the file *.env* in the main folder of the project in `CosmosDbKey` field.
+
+### Web App Bot
+---
+Web App Bot is the easiest way to deploy your [Bot Service](https://azure.microsoft.com/en-us/services/bot-services) and hosting it on an [App Service](https://azure.microsoft.com/en-us/services/app-service) (used in this project for hosting ModBot and direct lines servers).
+
+1. Create a new resource and using the search bar find 'Bot'.
+2. From drop-down list select Web App Bot.
+3. Provide the details for the Subscription, Resource Group, Location and the name.
+4. For Pricing Tier select F0 Plan (it's free).
+5. As Bot Template, select Node.js as SDK Language and choose "Echo Bot" as template. This template will be replaced with our code. We explain how to do it later.
+6. Select an App Service Plan or create a new one if you don't have it.
+7. Leave all the others fields as default and press Create.
+8. When the resource is been correctly deployed go to resource.
+9. In the lateral menu choose 'Channels'.
+10. Enable all the channels you needed.
+
+**Using custom channels**
+Discord and Twitch at this moment aren't officially supported by Azure Bot Service. What you need is to add Direct Line as channel. Then, for both Discord and Twitch you must:
+1. Click on 'Edit' on the right of 'Direct Line'
+2. Click on 'Add New Site'
+3. Choose a name for your new direct line channel. (For instance: *Discord* or *Twitch*)
+4. Copy Secret Keys in corrispective .env file. 
+
+The fields are different for Discord and Twitch. For Discord:
+- Copy Secret Keys in `DiscordDirectLineSecret` field
+- Remember to set `AzureBotName` field too, based on the name choosed before.
+
+For Twitch:
+- Copy Secret Keys in `TwitchDirectLineSecret` field
+- Remember to set `AzureBotName` field too, based on the name choosed before.
+
+### Azure Functions
+--- 
+
+In this project, HTTP triggered [Azure Functions](https://azure.microsoft.com/en-us/services/functions) are used for message management and ban mechanism. We use also Time Triggered Functions for unban mechanism.
+
+You can deploy directly from VSCode using [this guide](https://docs.microsoft.com/en-us/azure/azure-functions/functions-develop-vs)
+
+### Content Moderator
+In ModBot [Content Moderator](https://azure.microsoft.com/en-us/services/cognitive-services/content-moderator) service processes text and images to detect inappropriate content.
+
+1. Create a new resource and using the search bar find 'Cognitive Services'.
+2. Press on Create
+3. Search in the searchbar avaible in 'Content Moderator' in Get Started Categories
+4. Provide the details for the Subscription, Resource Group, Region and the name.
+5. For Pricing Tier you can use Free F0 for testing purpose, but we suggest Standard S0 in production
+6. Press Review + Create. Once the resource is ready, go to resource.
+7. From the left-side menu, select 'Keys and Endpoint'.
+8. Search for 'KEY 1', copy it and save it in the file *.env* in the main folder of the project in `ContentModeratorKey` field.
+9. Search for 'Endpoint', copy it and save it in the file *.env* in the main folder of the project in `ContentModeratorEndpoint` field.
+
+### Text Analytics
+
+In ModBot, [Text Analytics](https://azure.microsoft.com/en-us/services/cognitive-services/text-analytics) is used to detect personal information exchanged in the chat.
+
+1. Create a new resource and using the search bar find 'Cognitive Services'.
+2. Press on Create
+3. Search 'Text Analytics' in the searchbar avaible in Get Started Categories. Select the 'Text Analytics' provided by Microsoft.
+4. Provide the details for the Subscription, Resource Group, Region and the name.
+5. For Pricing Tier you can use Free F0.
+6. Press Review + Create. Once the resource is ready, go to resource.
+7. From the left-side menu, select 'Keys and Endpoint'.
+8. Search for 'KEY 1', copy it and save it in the file *.env* in the main folder of the project in `TextAnalyticsKey` field.
+9. Search for 'Endpoint', copy it and save it in the file *.env* in the main folder of the project in `TextAnalyticsEndpoint` field.
 
 ## **👨‍💻 How to install**
 ### **Prerequisites**
@@ -114,11 +201,9 @@ npm install
 
 ### **Deploy the bot to Azure**
 ---
-In this section we learn how to deploy the bot on azure: we cover the dep
-### Before deploy
----
+In this section we learn how to deploy the bot on azure.
 
-Before you start with deploying, make sure that you have started the services listed in [this sections](#🔧-Azure-Tools).
+Before you start with deploying, make sure that you have started the services listed into [🔧 Azure Tools section](#🔧-Azure-Tools).
 
 Before you deploy the bot, you must generate `web.config` file.
 
