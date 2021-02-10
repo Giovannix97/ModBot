@@ -2,11 +2,11 @@
 
 A tool for moderate language and contents in several chat platforms.
 
-View the **live demo** (or [download it](Demo.mov))!
+View the **live demo** (or [download it](Presentation/Demo.mov))!
 
 [![Live demo](assets/img/video.png)](https://www.youtube.com/watch?v=_2KD-kiYM-E)
 
-Or go to [PPT](Presentazione-cloud.pptx).
+Or go to [PPT](Presentation/Presentation.pptx).
 
 ---
 Developed for Cloud Computing exam at the [Università degli Studi di Salerno](https://www.unisa.it/) and for *AzureChamp 2021* by: 
@@ -87,8 +87,9 @@ Now let's start with other tools!
 4. Leave all the others fields as default and press Review + create.
 When the resource is been correctly deployed go to resource.
 5. In the lateral menu choose 'Keys'.
-6. Search for the 'URI', copy it and save it in the file *.env* in the main folder of the project in `CosmosDbEndpoint` field.
-7. Search for the 'PRIMARY KEY', copy it and save it in the file *.env* in the main folder of the project in `CosmosDbKey` field.
+6. Search for the 'URI', copy it and save it in the file *.env* in the main folder of the project in `CosmosDbEndpoint` field. Copy it and save it also in the file *local.settings.json* into *functions* folder in `CosmosDbEndpoint` field.
+7. Search for the 'PRIMARY KEY', copy it and save it in the file *.env* in the main folder of the project in `CosmosDbKey` field. Copy it and save it also in the file *local.settings.json* into *functions* folder in `CosmosDbKey` field.
+8. Search for the 'PRIMARY CONNECTION STRING'. Copy it and save it also in the file *local.settings.json* into *functions* folder in `CONNECTION_STRING` field.
 
 ### Web App Bot
 ---
@@ -104,6 +105,7 @@ Web App Bot is the easiest way to deploy your [Bot Service](https://azure.micros
 8. When the resource is been correctly deployed go to resource.
 9. In the lateral menu choose 'Channels'.
 10. Enable all the channels you needed.
+11. Go to *functions* folder and set `BOT_ENDPOINT` field in this way: *https://.<YOUR_BOT_NAME>.azurewebsites.net*
 
 **Using custom channels**
 Discord and Twitch at this moment aren't officially supported by Azure Bot Service. What you need is to add Direct Line as channel. Then, for both Discord and Twitch you must:
